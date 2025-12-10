@@ -3,7 +3,7 @@ import { useParams } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
 import { useQuery } from "@tanstack/react-query";
 import { getStreamToken } from "../lib/api";
-import CryptoJS from "crypto-js"; // <--- IMPORT THIS
+import CryptoJS from "crypto-js"; // <--- ADD THIS IMPORT
 
 import {
   Channel,
@@ -55,13 +55,13 @@ const ChatPage = () => {
           tokenData.token
         );
 
-        // --- FIX START ---
-        // Create a base string by sorting IDs to ensure consistency regardless of who starts chat
+        // --- FIX IMPLEMENTED HERE ---
+        // 1. Create the base string (sorted to ensure uniqueness between two users)
         const rawChannelId = [authUser._id, targetUserId].sort().join("-");
         
-        // Hash the string to ensure it never exceeds 64 chars (MD5 is 32 chars)
+        // 2. Hash it to MD5 (32 chars) to satisfy the 64-char limit
         const channelId = CryptoJS.MD5(rawChannelId).toString();
-        // --- FIX END ---
+        // ----------------------------
 
         const currChannel = client.channel("messaging", channelId, {
           members: [authUser._id, targetUserId],
