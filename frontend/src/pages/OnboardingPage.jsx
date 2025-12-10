@@ -3,8 +3,7 @@ import useAuthUser from "../hooks/useAuthUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { completeOnboarding } from "../lib/api";
-import { LoaderIcon, MapPinIcon, ShipWheelIcon, ShuffleIcon } from "lucide-react";
-import { LANGUAGES } from "../constants";
+import { LoaderIcon, MapPinIcon, ShipWheelIcon, ShuffleIcon, BriefcaseIcon, GraduationCapIcon } from "lucide-react";
 
 const OnboardingPage = () => {
   const { authUser } = useAuthUser();
@@ -13,10 +12,13 @@ const OnboardingPage = () => {
   const [formState, setFormState] = useState({
     fullName: authUser?.fullName || "",
     bio: authUser?.bio || "",
-    nativeLanguage: authUser?.nativeLanguage || "",
-    learningLanguage: authUser?.learningLanguage || "",
     location: authUser?.location || "",
     profilePic: authUser?.profilePic || "",
+    // New Fields
+    role: "student",
+    department: "",
+    yearLevel: "", // Only for students
+    position: "",  // Only for teachers
   });
 
   const { mutate: onboardingMutation, isPending } = useMutation({
@@ -25,22 +27,19 @@ const OnboardingPage = () => {
       toast.success("Profile onboarded successfully");
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
     },
-
     onError: (error) => {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Something went wrong");
     },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     onboardingMutation(formState);
   };
 
   const handleRandomAvatar = () => {
-    const idx = Math.floor(Math.random() * 100) + 1; // 1-100 included
+    const idx = Math.floor(Math.random() * 100) + 1;
     const randomAvatar = `https://avatar.iran.liara.run/public/${idx}.png`;
-
     setFormState({ ...formState, profilePic: randomAvatar });
     toast.success("Random profile picture generated!");
   };
@@ -52,134 +51,154 @@ const OnboardingPage = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-center mb-6">Complete Your Profile</h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* PROFILE PIC CONTAINER */}
+            {/* PROFILE PIC */}
             <div className="flex flex-col items-center justify-center space-y-4">
-              {/* IMAGE PREVIEW */}
-              <div className="size-32 rounded-full bg-base-300 overflow-hidden">
-                {formState.profilePic ? (
-                  <img
-                    src={formState.profilePic}
-                    alt="Profile Preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <CameraIcon className="size-12 text-base-content opacity-40" />
-                  </div>
-                )}
+              <div className="size-32 rounded-full bg-base-300 overflow-hidden ring-4 ring-base-100">
+                <img
+                  src={formState.profilePic}
+                  alt="Profile Preview"
+                  className="w-full h-full object-cover"
+                />
               </div>
-
-              {/* Generate Random Avatar BTN */}
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={handleRandomAvatar} className="btn btn-accent">
-                  <ShuffleIcon className="size-4 mr-2" />
-                  Generate Random Avatar
-                </button>
-              </div>
+              <button type="button" onClick={handleRandomAvatar} className="btn btn-accent btn-sm">
+                <ShuffleIcon className="size-4 mr-2" />
+                Generate Random Avatar
+              </button>
             </div>
 
             {/* FULL NAME */}
             <div className="form-control">
-              <label className="label">
-                <span className="label-text">Full Name</span>
-              </label>
+              <label className="label"><span className="label-text">Full Name</span></label>
               <input
                 type="text"
-                name="fullName"
                 value={formState.fullName}
                 onChange={(e) => setFormState({ ...formState, fullName: e.target.value })}
                 className="input input-bordered w-full"
-                placeholder="Your full name"
+                required
               />
             </div>
 
             {/* BIO */}
             <div className="form-control">
-              <label className="label">
-                <span className="label-text">Bio</span>
-              </label>
+              <label className="label"><span className="label-text">Bio</span></label>
               <textarea
-                name="bio"
                 value={formState.bio}
                 onChange={(e) => setFormState({ ...formState, bio: e.target.value })}
                 className="textarea textarea-bordered h-24"
-                placeholder="Tell others about yourself and your language learning goals"
+                placeholder="Tell us about yourself..."
+                required
               />
-            </div>
-
-            {/* LANGUAGES */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* NATIVE LANGUAGE */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Native Language</span>
-                </label>
-                <select
-                  name="nativeLanguage"
-                  value={formState.nativeLanguage}
-                  onChange={(e) => setFormState({ ...formState, nativeLanguage: e.target.value })}
-                  className="select select-bordered w-full"
-                >
-                  <option value="">Select your native language</option>
-                  {LANGUAGES.map((lang) => (
-                    <option key={`native-${lang}`} value={lang.toLowerCase()}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* LEARNING LANGUAGE */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Learning Language</span>
-                </label>
-                <select
-                  name="learningLanguage"
-                  value={formState.learningLanguage}
-                  onChange={(e) => setFormState({ ...formState, learningLanguage: e.target.value })}
-                  className="select select-bordered w-full"
-                >
-                  <option value="">Select language you're learning</option>
-                  {LANGUAGES.map((lang) => (
-                    <option key={`learning-${lang}`} value={lang.toLowerCase()}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {/* LOCATION */}
             <div className="form-control">
-              <label className="label">
-                <span className="label-text">Location</span>
-              </label>
+              <label className="label"><span className="label-text">Location</span></label>
               <div className="relative">
                 <MapPinIcon className="absolute top-1/2 transform -translate-y-1/2 left-3 size-5 text-base-content opacity-70" />
                 <input
                   type="text"
-                  name="location"
                   value={formState.location}
                   onChange={(e) => setFormState({ ...formState, location: e.target.value })}
                   className="input input-bordered w-full pl-10"
                   placeholder="City, Country"
+                  required
                 />
               </div>
             </div>
 
-            {/* SUBMIT BUTTON */}
+            {/* --- ROLE SELECTION --- */}
+            <div className="divider">Role & Academics</div>
+            
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">I am a...</span></label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center gap-2 transition-all ${formState.role === 'student' ? 'bg-primary text-primary-content border-primary' : 'bg-base-100 border-base-300 hover:border-primary'}`}>
+                  <input 
+                    type="radio" 
+                    name="role" 
+                    className="hidden" 
+                    checked={formState.role === "student"} 
+                    onChange={() => setFormState({...formState, role: "student"})} 
+                  />
+                  <GraduationCapIcon className="size-6" />
+                  <span className="font-medium">Student</span>
+                </label>
 
-            <button className="btn btn-primary w-full" disabled={isPending} type="submit">
-              {!isPending ? (
+                <label className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center gap-2 transition-all ${formState.role === 'teacher' ? 'bg-secondary text-secondary-content border-secondary' : 'bg-base-100 border-base-300 hover:border-secondary'}`}>
+                  <input 
+                    type="radio" 
+                    name="role" 
+                    className="hidden" 
+                    checked={formState.role === "teacher"} 
+                    onChange={() => setFormState({...formState, role: "teacher"})} 
+                  />
+                  <BriefcaseIcon className="size-6" />
+                  <span className="font-medium">Teacher</span>
+                </label>
+              </div>
+            </div>
+
+            {/* DEPARTMENT (Common) */}
+            <div className="form-control">
+              <label className="label"><span className="label-text">Department / College</span></label>
+              <select 
+                className="select select-bordered w-full" 
+                value={formState.department}
+                onChange={(e) => setFormState({...formState, department: e.target.value})}
+                required
+              >
+                <option value="" disabled>Select Department</option>
+                <option value="cs">Computer Science</option>
+                <option value="it">Information Technology</option>
+                <option value="eng">Engineering</option>
+                <option value="arts">Arts & Sciences</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {/* CONDITIONAL FIELDS */}
+            <div className="grid grid-cols-1 gap-4">
+              {formState.role === "student" ? (
+                <div className="form-control">
+                  <label className="label"><span className="label-text">Year Level</span></label>
+                  <select 
+                    className="select select-bordered w-full"
+                    value={formState.yearLevel}
+                    onChange={(e) => setFormState({...formState, yearLevel: e.target.value})}
+                    required={formState.role === "student"}
+                  >
+                    <option value="" disabled>Select Year</option>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="form-control">
+                  <label className="label"><span className="label-text">Position / Title</span></label>
+                  <input 
+                    type="text"
+                    className="input input-bordered w-full" 
+                    placeholder="e.g. Professor, Instructor"
+                    value={formState.position}
+                    onChange={(e) => setFormState({...formState, position: e.target.value})}
+                    required={formState.role === "teacher"}
+                  />
+                </div>
+              )}
+            </div>
+
+            <button className="btn btn-primary w-full mt-6" disabled={isPending} type="submit">
+              {isPending ? (
                 <>
-                  <ShipWheelIcon className="size-5 mr-2" />
-                  Complete Onboarding
+                  <LoaderIcon className="animate-spin size-5 mr-2" />
+                  Saving...
                 </>
               ) : (
                 <>
-                  <LoaderIcon className="animate-spin size-5 mr-2" />
-                  Onboarding...
+                  <ShipWheelIcon className="size-5 mr-2" />
+                  Complete Setup
                 </>
               )}
             </button>

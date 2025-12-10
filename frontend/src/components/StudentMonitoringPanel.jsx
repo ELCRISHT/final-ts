@@ -35,6 +35,14 @@ const StudentMonitoringPanel = ({ callId }) => {
     saveMonitoringEvent(payload);
   };
 
+  // --- FIX: Send initial signal so Teacher sees student immediately ---
+  useEffect(() => {
+    if (authUser) {
+      sendEvent("focus", "Student Joined Session");
+    }
+  }, [authUser]); 
+  // ------------------------------------------------------------------
+
   useEffect(() => {
     focusInterval.current = setInterval(() => {
       if (isFocused) setFocusedTime((prev) => prev + 1);

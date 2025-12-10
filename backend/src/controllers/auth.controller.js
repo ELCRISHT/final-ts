@@ -22,10 +22,10 @@ export async function signup(req, res) {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already exists, please use a diffrent one" });
+      return res.status(400).json({ message: "Email already exists, please use a different one" });
     }
 
-    const idx = Math.floor(Math.random() * 100) + 1; // generate a num between 1-100
+    const idx = Math.floor(Math.random() * 100) + 1;
     const randomAvatar = `https://avatar.iran.liara.run/public/${idx}.png`;
 
     const newUser = await User.create({
@@ -41,7 +41,6 @@ export async function signup(req, res) {
         name: newUser.fullName,
         image: newUser.profilePic || "",
       });
-      console.log(`Stream user created for ${newUser.fullName}`);
     } catch (error) {
       console.log("Error creating Stream user:", error);
     }
@@ -52,8 +51,8 @@ export async function signup(req, res) {
 
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      httpOnly: true, // prevent XSS attacks,
-      sameSite: "strict", // prevent CSRF attacks
+      httpOnly: true,
+      sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
     });
 
@@ -84,8 +83,8 @@ export async function login(req, res) {
 
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      httpOnly: true, // prevent XSS attacks,
-      sameSite: "strict", // prevent CSRF attacks
+      httpOnly: true,
+      sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
     });
 
@@ -101,23 +100,24 @@ export function logout(req, res) {
   res.status(200).json({ success: true, message: "Logout successful" });
 }
 
+// --- THIS IS THE UPDATED FUNCTION ---
 export async function onboard(req, res) {
   try {
     const userId = req.user._id;
+    // We now extract Role, Department, etc. instead of Language
+    const { fullName, bio, location, role, department } = req.body;
 
-    const { fullName, bio, nativeLanguage, learningLanguage, location } = req.body;
+    // Validation
+    if (!fullName || !bio || !location || !role || !department) {
+      return res.status(400).json({ message: "Please fill all required fields" });
+    }
 
-    if (!fullName || !bio || !nativeLanguage || !learningLanguage || !location) {
-      return res.status(400).json({
-        message: "All fields are required",
-        missingFields: [
-          !fullName && "fullName",
-          !bio && "bio",
-          !nativeLanguage && "nativeLanguage",
-          !learningLanguage && "learningLanguage",
-          !location && "location",
-        ].filter(Boolean),
-      });
+    // Role-specific validation
+    if (role === 'student' && !req.body.yearLevel) {
+      return res.status(400).json({ message: "Year Level is required for students" });
+    }
+    if (role === 'teacher' && !req.body.position) {
+      return res.status(400).json({ message: "Position is required for teachers" });
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -136,10 +136,10 @@ export async function onboard(req, res) {
         id: updatedUser._id.toString(),
         name: updatedUser.fullName,
         image: updatedUser.profilePic || "",
+        role: updatedUser.role, 
       });
-      console.log(`Stream user updated after onboarding for ${updatedUser.fullName}`);
     } catch (streamError) {
-      console.log("Error updating Stream user during onboarding:", streamError.message);
+      console.log("Error updating Stream user:", streamError.message);
     }
 
     res.status(200).json({ success: true, user: updatedUser });
