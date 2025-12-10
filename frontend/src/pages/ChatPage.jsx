@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
 import { useQuery } from "@tanstack/react-query";
 import { getStreamToken } from "../lib/api";
+import CryptoJS from "crypto-js"; // <--- IMPORT THIS
 
 import {
   Channel,
@@ -33,7 +34,7 @@ const ChatPage = () => {
   const { data: tokenData } = useQuery({
     queryKey: ["streamToken"],
     queryFn: getStreamToken,
-    enabled: !!authUser, // this will run only when authUser is available
+    enabled: !!authUser,
   });
 
   useEffect(() => {
@@ -54,12 +55,13 @@ const ChatPage = () => {
           tokenData.token
         );
 
-        //
-        const channelId = [authUser._id, targetUserId].sort().join("-");
-
-        // you and me
-        // if i start the chat => channelId: [myId, yourId]
-        // if you start the chat => channelId: [yourId, myId]  => [myId,yourId]
+        // --- FIX START ---
+        // Create a base string by sorting IDs to ensure consistency regardless of who starts chat
+        const rawChannelId = [authUser._id, targetUserId].sort().join("-");
+        
+        // Hash the string to ensure it never exceeds 64 chars (MD5 is 32 chars)
+        const channelId = CryptoJS.MD5(rawChannelId).toString();
+        // --- FIX END ---
 
         const currChannel = client.channel("messaging", channelId, {
           members: [authUser._id, targetUserId],
