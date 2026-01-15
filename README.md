@@ -15,7 +15,7 @@ Highlights:
 
 ---
 
-## .env Setup
+## Setup and Installation
 
 ### Backend (`/backend`)
 
