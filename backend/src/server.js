@@ -19,14 +19,29 @@ const __dirname = path.resolve();
 // 3. Use the imported app (do not use const app = express())
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173", 
-      "http://localhost:5174",
-      "https://final-ts-git-main-thearsenic.vercel.app",
-      "https://final-8r0sww9lj-thearsenic.vercel.app",
-      process.env.FRONTEND_URL
-    ].filter(Boolean), // Remove undefined values
-    credentials: true, 
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        process.env.FRONTEND_URL
+      ];
+      
+      // Allow all Vercel preview/production URLs
+      if (origin.includes('vercel.app')) {
+        return callback(null, true);
+      }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
   })
 );
 
