@@ -19,7 +19,7 @@ const __dirname = path.resolve();
 // 3. Use the imported app (do not use const app = express())
 app.use(
   cors({
-    origin: ["http://localhost:5173"], // Match the array format in socket.js
+    origin: ["https://final-ts.onrender.com"], // Match the array format in socket.js
     credentials: true, 
   })
 );
