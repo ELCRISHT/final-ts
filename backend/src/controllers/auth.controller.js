@@ -56,7 +56,7 @@ export async function signup(req, res) {
       secure: true,
     });
 
-    res.status(201).json({ success: true, user: newUser });
+    res.status(201).json({ success: true, user: newUser, token });
   } catch (error) {
     console.log("Error in signup controller", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -67,14 +67,23 @@ export async function login(req, res) {
   try {
     const { email, password } = req.body;
 
+    console.log("Login attempt for:", email);
+
     if (!email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+    if (!user) {
+      console.log("User not found:", email);
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
+    console.log("User found:", user.email);
+    
     const isPasswordCorrect = await user.matchPassword(password);
+    console.log("Password match:", isPasswordCorrect);
+    
     if (!isPasswordCorrect) return res.status(401).json({ message: "Invalid email or password" });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET_KEY, {
@@ -88,7 +97,7 @@ export async function login(req, res) {
       secure: true,
     });
 
-    res.status(200).json({ success: true, user });
+    res.status(200).json({ success: true, user, token });
   } catch (error) {
     console.log("Error in login controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });

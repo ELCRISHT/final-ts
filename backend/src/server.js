@@ -16,6 +16,9 @@ import { app, server } from "./lib/socket.js"; // 2. Import app & server from so
 const PORT = process.env.PORT || 5001;
 const __dirname = path.resolve();
 
+// Trust proxy for Render (needed for secure cookies)
+app.set('trust proxy', 1);
+
 // 3. Use the imported app (do not use const app = express())
 app.use(
   cors({
