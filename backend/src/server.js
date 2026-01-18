@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
 import chatRoutes from "./routes/chat.route.js";
 import monitoringRoutes from "./routes/monitoring.route.js"; // 1. Import monitoring routes
+import roomRoutes from "./routes/room.route.js"; // Import room routes
 
 import { connectDB } from "./lib/db.js";
 import { app, server } from "./lib/socket.js"; // 2. Import app & server from socket.js
@@ -30,6 +31,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/monitoring", monitoringRoutes); // 4. Register the monitoring route
+app.use("/api/rooms", roomRoutes); // Register room routes
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));

@@ -8,6 +8,7 @@ import CallPage from "./pages/CallPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import FriendsPage from "./pages/FriendsPage.jsx"; // <--- 1. IMPORT ADDED
+import RoomsPage from "./pages/RoomsPage.jsx"; // Import Rooms Page
 
 import { Toaster } from "react-hot-toast";
 
@@ -67,6 +68,20 @@ const App = () => {
           }
         />
         {/* ----------------------------------- */}
+
+        {/* ROOMS ROUTE */}
+        <Route
+          path="/rooms"
+          element={
+            isAuthenticated && isOnboarded ? (
+              <Layout showSidebar={true}>
+                <RoomsPage />
+              </Layout>
+            ) : (
+              <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />
+            )
+          }
+        />
 
         <Route
           path="/notifications"
