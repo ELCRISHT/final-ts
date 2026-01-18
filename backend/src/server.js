@@ -19,7 +19,11 @@ const __dirname = path.resolve();
 // 3. Use the imported app (do not use const app = express())
 app.use(
   cors({
-    origin: ["https://final-ts.onrender.com"], // Match the array format in socket.js
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:5174",
+      process.env.FRONTEND_URL || "https://final-ts.vercel.app"
+    ],
     credentials: true, 
   })
 );
