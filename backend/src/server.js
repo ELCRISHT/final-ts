@@ -22,8 +22,10 @@ app.use(
     origin: [
       "http://localhost:5173", 
       "http://localhost:5174",
-      process.env.FRONTEND_URL || "https://final-ts.vercel.app"
-    ],
+      "https://final-ts-git-main-thearsenic.vercel.app",
+      "https://final-8r0sww9lj-thearsenic.vercel.app",
+      process.env.FRONTEND_URL
+    ].filter(Boolean), // Remove undefined values
     credentials: true, 
   })
 );
