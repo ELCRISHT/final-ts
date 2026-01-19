@@ -12,7 +12,14 @@ const useLogout = () => {
     mutationFn: logout,
     onSuccess: () => {
       localStorage.removeItem('token'); // Clear token on logout
-      queryClient.invalidateQueries({ queryKey: ["authUser"] });
+      queryClient.clear(); // Clear all cached data
+      window.location.href = '/login'; // Redirect to login
+    },
+    onError: () => {
+      // Even on error, clear token and redirect
+      localStorage.removeItem('token');
+      queryClient.clear();
+      window.location.href = '/login';
     },
   });
 

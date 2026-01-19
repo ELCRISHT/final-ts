@@ -10,6 +10,7 @@ export const login = async (loginData) => {
   return response.data;
 };
 export const logout = async () => {
+  localStorage.removeItem('token'); // Clear token immediately
   const response = await axiosInstance.post("/auth/logout");
   return response.data;
 };
