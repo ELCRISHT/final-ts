@@ -1,7 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
-import { Video, Copy, ExternalLink, Plus, Users, Clock, Trash2, Link as LinkIcon } from "lucide-react";
+import {
+  VideoIcon,
+  CopyIcon,
+  PlusIcon,
+  UsersIcon,
+  ClockIcon,
+  Trash2Icon,
+  ArrowRightIcon,
+  SearchIcon,
+  MonitorIcon,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 
@@ -12,20 +22,22 @@ const RoomsPage = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const isTeacher = authUser?.role === "teacher";
 
   useEffect(() => {
+    if (!authUser) return;
     fetchRooms();
-  }, []);
+  }, [authUser]);
 
   const fetchRooms = async () => {
     try {
       const response = await axiosInstance.get("/rooms");
       setRooms(response.data);
-    } catch (error) {
-      console.error("Error fetching rooms:", error);
-      toast.error("Failed to load rooms");
+    } catch {
+      toast.error("Failed to load classrooms");
     } finally {
       setIsLoading(false);
     }
@@ -33,220 +45,233 @@ const RoomsPage = () => {
 
   const createRoom = async (e) => {
     e.preventDefault();
-    if (!newRoomName.trim()) {
-      toast.error("Please enter a room name");
-      return;
-    }
-
+    if (!newRoomName.trim()) return;
     setIsCreating(true);
     try {
-      const response = await axiosInstance.post("/rooms/create", {
-        name: newRoomName.trim(),
-      });
-      
-      toast.success("Room created successfully!");
+      const response = await axiosInstance.post("/rooms/create", { name: newRoomName.trim() });
+      toast.success("Classroom created!");
       setRooms([response.data, ...rooms]);
       setNewRoomName("");
+      setShowCreateForm(false);
     } catch (error) {
-      console.error("Error creating room:", error);
-      toast.error(error.response?.data?.message || "Failed to create room");
+      toast.error(error.response?.data?.message || "Failed to create classroom");
     } finally {
       setIsCreating(false);
     }
   };
 
   const deleteRoom = async (roomId) => {
-    if (!confirm("Are you sure you want to delete this room?")) return;
-
+    if (!confirm("Delete this classroom? This action cannot be undone.")) return;
     try {
       await axiosInstance.delete(`/rooms/${roomId}`);
-      setRooms(rooms.filter(room => room._id !== roomId));
-      toast.success("Room deleted");
-    } catch (error) {
-      console.error("Error deleting room:", error);
-      toast.error("Failed to delete room");
+      setRooms(rooms.filter((r) => r._id !== roomId));
+      toast.success("Classroom deleted");
+    } catch {
+      toast.error("Failed to delete classroom");
     }
   };
 
   const copyRoomLink = (roomId) => {
-    const link = `${window.location.origin}/call/${roomId}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Room link copied to clipboard!");
+    navigator.clipboard.writeText(`${window.location.origin}/call/${roomId}`);
+    toast.success("Link copied!");
   };
 
-  const joinRoom = (roomId) => {
-    navigate(`/call/${roomId}`);
-  };
+  const filtered = rooms.filter((r) =>
+    r.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <span className="loading loading-spinner loading-lg text-primary"></span>
+        <div className="text-center">
+          <span className="loading loading-spinner loading-lg text-blue-400" />
+          <p className="text-sm text-slate-500 mt-3">Loading classrooms...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="max-w-6xl mx-auto p-5 sm:p-7 space-y-6">
+
+        {/* ── Page Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Video className="size-8 text-primary" />
-              Video Rooms
+            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-blue-500/15 border border-blue-500/25">
+                <VideoIcon className="size-5 text-blue-400" />
+              </div>
+              Classrooms
             </h1>
-            <p className="text-base-content/60 mt-1">
+            <p className="text-sm text-slate-400 mt-1 ml-0.5">
               {isTeacher
-                ? "Create and manage video call rooms for your students"
-                : "Join available video call rooms"}
+                ? "Manage your classroom sessions and share links with students"
+                : "Join an available classroom session below"}
             </p>
           </div>
-        </div>
 
-        {/* Create Room Form (Teachers Only) */}
-        {isTeacher && (
-          <div className="card bg-base-200 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title text-xl flex items-center gap-2">
-                <Plus className="size-5" />
-                Create New Room
-              </h2>
-              <form onSubmit={createRoom} className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="Enter room name (e.g., Math Class, Study Session)"
-                  className="input input-bordered flex-1"
-                  value={newRoomName}
-                  onChange={(e) => setNewRoomName(e.target.value)}
-                  maxLength={50}
-                />
-                <button
-                  type="submit"
-                  className="btn btn-primary gap-2"
-                  disabled={isCreating || !newRoomName.trim()}
-                >
-                  {isCreating ? (
-                    <span className="loading loading-spinner loading-sm"></span>
-                  ) : (
-                    <Plus className="size-4" />
-                  )}
-                  Create Room
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Rooms List */}
-        <div>
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Users className="size-5 text-primary" />
-            {isTeacher ? "Your Rooms" : "Available Rooms"}
-            <span className="badge badge-primary">{rooms.length}</span>
-          </h2>
-
-          {rooms.length === 0 ? (
-            <div className="card bg-base-200 shadow-xl">
-              <div className="card-body items-center text-center py-12">
-                <Video className="size-16 text-base-content/30 mb-4" />
-                <h3 className="text-xl font-bold mb-2">No rooms available</h3>
-                <p className="text-base-content/60">
-                  {isTeacher
-                    ? "Create your first room to get started"
-                    : "No rooms are currently available. Check back later!"}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rooms.map((room) => (
-                <div
-                  key={room._id}
-                  className="card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-200 border border-base-300"
-                >
-                  <div className="card-body">
-                    <div className="flex items-start justify-between">
-                      <h3 className="card-title text-lg flex-1">{room.name}</h3>
-                      {isTeacher && room.createdBy === authUser._id && (
-                        <button
-                          onClick={() => deleteRoom(room._id)}
-                          className="btn btn-ghost btn-sm btn-square text-error"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 text-sm opacity-70">
-                      <div className="flex items-center gap-2">
-                        <Users className="size-4" />
-                        <span>
-                          Created by {room.createdByName || "Unknown"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="size-4" />
-                        <span>
-                          {new Date(room.createdAt).toLocaleDateString()} at{" "}
-                          {new Date(room.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {room.participants > 0 && (
-                        <div className="flex items-center gap-2">
-                          <div className="size-2 rounded-full bg-success animate-pulse"></div>
-                          <span className="text-success font-semibold">
-                            {room.participants} active
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="card-actions justify-end mt-4 gap-2">
-                      <button
-                        onClick={() => copyRoomLink(room._id)}
-                        className="btn btn-sm btn-ghost gap-2"
-                        title="Copy room link"
-                      >
-                        <Copy className="size-4" />
-                        Copy Link
-                      </button>
-                      <button
-                        onClick={() => joinRoom(room._id)}
-                        className="btn btn-sm btn-primary gap-2"
-                      >
-                        <ExternalLink className="size-4" />
-                        Join Room
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {isTeacher && (
+            <button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="ts-btn-primary btn btn-sm px-5 gap-2 self-start sm:self-auto"
+            >
+              <PlusIcon className="size-4" />
+              New Classroom
+            </button>
           )}
         </div>
 
-        {/* Quick Link Section */}
-        {isTeacher && rooms.length > 0 && (
-          <div className="card bg-gradient-to-br from-primary/10 to-secondary/10 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title text-xl flex items-center gap-2">
-                <LinkIcon className="size-5" />
-                Share Room Links
-              </h2>
-              <p className="text-sm opacity-70">
-                Students can join by clicking the room link or navigating to the Rooms page
-              </p>
-              <div className="alert alert-info text-sm mt-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>Anyone with the room link can join the video call. Share responsibly!</span>
-              </div>
+        {/* ── Create Form (Teachers) ── */}
+        {isTeacher && showCreateForm && (
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-500/8 to-purple-500/5 border border-blue-500/15 animate-fade-in-up">
+            <h2 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+              <PlusIcon className="size-4 text-blue-400" />
+              Create New Classroom
+            </h2>
+            <form onSubmit={createRoom} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g., CS101 — Data Structures"
+                className="ts-input input flex-1 h-10 px-3 text-sm"
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value)}
+                maxLength={50}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="btn btn-sm btn-ghost text-slate-500 h-10"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="ts-btn-primary btn btn-sm px-5 gap-2 h-10"
+                disabled={isCreating || !newRoomName.trim()}
+              >
+                {isCreating ? <span className="loading loading-spinner loading-xs" /> : <PlusIcon className="size-3.5" />}
+                Create
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ── Search ── */}
+        {rooms.length > 0 && (
+          <div className="relative animate-fade-in">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search classrooms..."
+              className="ts-input input w-full h-10 pl-9 pr-4 text-sm max-w-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        )}
+
+        {/* ── Room Count ── */}
+        <div className="flex items-center gap-2">
+          <UsersIcon className="size-4 text-slate-500" />
+          <span className="text-sm font-semibold text-slate-400">
+            {isTeacher ? "Your Classrooms" : "Available Classrooms"}
+          </span>
+          <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-xs font-bold">
+            {filtered.length}
+          </span>
+        </div>
+
+        {/* ── Room Grid ── */}
+        {filtered.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center text-center animate-fade-in">
+            <div className="p-5 rounded-2xl bg-white/3 border border-white/6 mb-4">
+              <VideoIcon className="size-12 text-slate-600" />
             </div>
+            <p className="text-base font-semibold text-slate-400">
+              {search ? "No classrooms match your search" : isTeacher ? "No classrooms yet" : "No classrooms available"}
+            </p>
+            <p className="text-sm text-slate-500 mt-1">
+              {!search && isTeacher && "Click \"New Classroom\" to create your first session."}
+              {!search && !isTeacher && "Your teacher hasn't created a session yet. Check back soon."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+            {filtered.map((room, i) => (
+              <div
+                key={room._id}
+                className="ts-room-card p-5 flex flex-col justify-between"
+                style={{ animationDelay: `${i * 0.05}s` }}
+              >
+                {/* Room Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 shrink-0 mt-0.5">
+                      <MonitorIcon className="size-4 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-200 leading-snug">{room.name}</h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        by {room.createdByName || "Unknown"}
+                      </p>
+                    </div>
+                  </div>
+                  {isTeacher && room.createdBy === authUser._id && (
+                    <button
+                      onClick={() => deleteRoom(room._id)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
+                    >
+                      <Trash2Icon className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Room Meta */}
+                <div className="space-y-1.5 mb-4">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <ClockIcon className="size-3.5 shrink-0" />
+                    <span>
+                      Created {new Date(room.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
+                    <span className="px-2 py-0.5 rounded-md bg-white/3 border border-white/6 text-slate-500">
+                      ID: {room._id.slice(-8).toUpperCase()}
+                    </span>
+                    {room.participants > 0 && (
+                      <span className="flex items-center gap-1 text-green-400 font-sans font-medium">
+                        <span className="ts-dot-live" />
+                        {room.participants} active
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => copyRoomLink(room._id)}
+                    className="btn btn-xs btn-ghost flex-1 gap-1.5 text-slate-400 hover:text-slate-200 border border-white/8 h-8"
+                  >
+                    <CopyIcon className="size-3.5" />
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={() => navigate(`/call/${room._id}`)}
+                    className="ts-btn-primary btn btn-xs flex-1 gap-1.5 h-8 text-xs"
+                  >
+                    {isTeacher ? <VideoIcon className="size-3.5" /> : <ArrowRightIcon className="size-3.5" />}
+                    {isTeacher ? "Start" : "Join"}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

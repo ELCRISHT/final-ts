@@ -137,7 +137,7 @@ const CallGroupChat = ({ callId, isOpen, onToggle }) => {
     return (
       <button
         onClick={onToggle}
-        className="fixed bottom-28 right-6 z-[50] btn btn-circle btn-lg btn-primary shadow-2xl hover:scale-110 transition-transform duration-200 animate-bounce"
+        className="fixed bottom-24 right-6 z-[50] btn btn-circle btn-lg btn-primary shadow-2xl hover:scale-110 transition-transform duration-200 animate-bounce"
         style={{ animationDuration: "3s" }}
       >
         <MessageCircle className="size-5" />
@@ -152,8 +152,10 @@ const CallGroupChat = ({ callId, isOpen, onToggle }) => {
 
   return (
     <div
-      className={`fixed bottom-28 right-6 z-[50] bg-base-100 rounded-2xl shadow-2xl border border-primary/20 flex flex-col transition-all duration-300 backdrop-blur-xl ${
-        isMinimized ? "w-72 h-14" : "w-80 h-[500px]"
+      className={`fixed right-0 z-[50] bg-base-100 flex flex-col transition-all duration-300 backdrop-blur-xl border-l border-base-300/40 shadow-2xl ${
+        isMinimized
+          ? "bottom-[88px] top-11 w-80 h-14 border-b border-base-300/40 rounded-none"
+          : "top-11 bottom-[88px] w-80"
       }`}
     >
       {/* Header */}

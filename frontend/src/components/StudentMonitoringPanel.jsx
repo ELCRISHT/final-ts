@@ -1,10 +1,38 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { socket } from "../lib/socket";
 import { saveMonitoringEvent } from "../lib/api";
 import useAuthUser from "../hooks/useAuthUser";
+import usePhoneDetection from "../hooks/usePhoneDetection";
 import toast from "react-hot-toast";
-import { Activity } from "lucide-react";
+import { Activity, Smartphone } from "lucide-react";
+
+// ── Double-beep using Web Audio API (no external deps) ──────────────────────
+const playDoubleBeep = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const beep = (startTime) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, startTime);        // A5 – sharp alert tone
+      gain.gain.setValueAtTime(0.6, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.18);
+      osc.start(startTime);
+      osc.stop(startTime + 0.18);
+    };
+    const now = ctx.currentTime;
+    beep(now);           // first beep
+    beep(now + 0.25);    // second beep, 250 ms later
+    // Close context after both beeps finish
+    setTimeout(() => ctx.close(), 700);
+  } catch (e) {
+    // silently ignore if AudioContext is unavailable
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const WARNING_THRESHOLD = 10;
 const IDLE_THRESHOLD = 15000; // 15 seconds for testing
@@ -18,9 +46,11 @@ const StudentMonitoringPanel = ({ callId }) => {
   const [distractedTime, setDistractedTime] = useState(0);
   const [statusMessage, setStatusMessage] = useState("Focused");
   const [isMinimized, setIsMinimized] = useState(true); // Start minimized for cleaner interface
-  
+  const [phoneDetected, setPhoneDetected] = useState(false);
+
   const focusInterval = useRef(null);
   const idleTimer = useRef(null);
+  const phoneCooldown = useRef(false); // prevents rapid-fire phone alerts
 
   const sendEvent = (eventType, details) => {
     if (!authUser) return;
@@ -42,7 +72,7 @@ const StudentMonitoringPanel = ({ callId }) => {
     if (authUser) {
       sendEvent("focus", "Student Joined Session");
     }
-  }, [authUser]); 
+  }, [authUser]);
   // ------------------------------------------------------------------
 
   useEffect(() => {
@@ -81,16 +111,23 @@ const StudentMonitoringPanel = ({ callId }) => {
       if (!isFocused && statusMessage === "Idle") handleFocus();
       clearTimeout(idleTimer.current);
       idleTimer.current = setTimeout(() => {
+        playDoubleBeep();
         handleDistraction("distraction", "Idle (No Activity)");
       }, IDLE_THRESHOLD);
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden) handleDistraction("tab_switch", "Switched Tab");
+      if (document.hidden) {
+        playDoubleBeep();
+        handleDistraction("tab_switch", "Switched Tab");
+      }
     };
 
-    const handleWindowBlur = () => handleDistraction("window_blur", "Left Window");
-    
+    const handleWindowBlur = () => {
+      playDoubleBeep();
+      handleDistraction("window_blur", "Left Window");
+    };
+
     window.addEventListener("mousemove", resetIdleTimer);
     window.addEventListener("keydown", resetIdleTimer);
     window.addEventListener("click", resetIdleTimer);
@@ -107,16 +144,34 @@ const StudentMonitoringPanel = ({ callId }) => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [isFocused, callId, authUser]); 
+  }, [isFocused, callId, authUser]);
 
   useEffect(() => {
     const newWarnings = Math.floor(distractions / 3);
     if (newWarnings > warnings) {
+      playDoubleBeep();
       sendEvent("warning", `Threshold reached: ${distractions} distractions`);
       setWarnings(newWarnings);
       if (newWarnings >= WARNING_THRESHOLD) toast.error("Critical Warning: Focus required!");
     }
   }, [distractions, warnings]);
+
+  // ── Phone Detection ────────────────────────────────────────────────────────
+  const handlePhoneDetected = useCallback((score) => {
+    if (phoneCooldown.current) return; // already alerted recently
+    phoneCooldown.current = true;
+    setPhoneDetected(true);
+    playDoubleBeep();
+    handleDistraction("phone_usage", `Phone detected (confidence: ${Math.round(score * 100)}%)`);
+    toast.error("📵 Phone detected! Please put it away.", { duration: 4000 });
+    // Reset visual indicator after 6 s, cooldown after 15 s
+    setTimeout(() => setPhoneDetected(false), 6000);
+    setTimeout(() => { phoneCooldown.current = false; }, 15000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  usePhoneDetection(true, handlePhoneDetected, 2500);
+  // ──────────────────────────────────────────────────────────────────────────
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -124,37 +179,37 @@ const StudentMonitoringPanel = ({ callId }) => {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // Minimized view
+  // Minimized view — inline pill in the top bar, to the left of the Participants button
   if (isMinimized) {
     return (
       <button
         onClick={() => setIsMinimized(false)}
-        className={`fixed right-6 top-24 backdrop-blur-xl shadow-xl rounded-xl border p-3 z-[60] transition-all duration-300 hover:scale-105 ${
-          isFocused 
-            ? "bg-gradient-to-br from-base-100/95 to-success/5 border-success/30" 
-            : "bg-gradient-to-br from-base-100/95 to-error/10 border-error/30 animate-pulse"
-        }`}
+        title="Click to expand your monitoring status"
+        className={`fixed top-0 right-[172px] h-11 z-[61] flex items-center gap-2 px-3 border-l border-r border-base-300/30 bg-base-200/50 hover:bg-base-300/50 transition-all duration-300 ${!isFocused ? "animate-pulse" : ""
+          }`}
       >
-        <div className="flex items-center gap-2">
-          <Activity className="size-5 text-primary" />
-          <div className={`badge badge-sm gap-1 ${
-            isFocused ? "badge-success" : "badge-error animate-pulse"
+        <Activity className="size-3.5 text-primary shrink-0" />
+        <span className={`flex items-center gap-1.5 text-xs font-semibold ${isFocused ? "text-success" : "text-error"
           }`}>
-            <div className="size-1.5 rounded-full bg-white" />
-            {isFocused ? "Focused" : "Distracted"}
-          </div>
-        </div>
+          <span className={`size-1.5 rounded-full ${isFocused ? "bg-success" : "bg-error animate-ping"}`} />
+          {isFocused ? "Focused" : "Distracted"}
+        </span>
+        {phoneDetected && (
+          <span className="flex items-center gap-1 text-xs font-bold text-orange-400 animate-pulse">
+            <Smartphone className="size-3" />
+            Phone!
+          </span>
+        )}
       </button>
     );
   }
 
   return (
-    <div className={`fixed right-6 top-24 w-72 backdrop-blur-xl shadow-2xl rounded-2xl border p-5 z-[60] transition-all duration-300 animate-in slide-in-from-right ${
-      isFocused 
-        ? "bg-gradient-to-br from-base-100/95 to-success/5 border-success/30" 
-        : "bg-gradient-to-br from-base-100/95 to-error/10 border-error/30 animate-pulse"
-    }`}>
-      
+    <div className={`fixed right-[172px] top-11 w-72 backdrop-blur-xl shadow-2xl rounded-b-2xl border-x border-b p-5 z-[60] transition-all duration-300 animate-in slide-in-from-top ${isFocused
+        ? "bg-gradient-to-br from-base-100/95 to-success/5 border-success/30"
+        : "bg-gradient-to-br from-base-100/95 to-error/10 border-error/30"
+      }`}>
+
       {/* HEADER */}
       <div className="flex items-center justify-between mb-4 border-b border-base-content/10 pb-3">
         <h3 className="font-bold text-lg flex items-center gap-2">
@@ -162,14 +217,12 @@ const StudentMonitoringPanel = ({ callId }) => {
           My Status
         </h3>
         <div className="flex items-center gap-2">
-          <div className={`badge gap-2 p-3 shadow-md ${
-            isFocused 
-              ? "badge-success animate-none" 
+          <div className={`badge gap-2 p-3 shadow-md ${isFocused
+              ? "badge-success animate-none"
               : "badge-error animate-pulse"
-          }`}>
-            <div className={`size-2 rounded-full bg-white ${
-              isFocused ? "" : "animate-ping absolute"
-            }`} />
+            }`}>
+            <div className={`size-2 rounded-full bg-white ${isFocused ? "" : "animate-ping absolute"
+              }`} />
             <div className="size-2 rounded-full bg-white relative" />
             {isFocused ? "Focused" : "Distracted"}
           </div>
@@ -187,18 +240,18 @@ const StudentMonitoringPanel = ({ callId }) => {
       {/* STATUS MESSAGE */}
       {!isFocused && (
         <div className="alert alert-error py-2 text-xs mb-4 shadow-sm">
-          <span>⚠️ {statusMessage}</span>
+          <span> {statusMessage}</span>
         </div>
       )}
 
       <div className="space-y-4">
         {/* COMPLY BUTTON - SHOWS IMMEDIATELY WHEN DISTRACTED */}
         {!isFocused && (
-          <button 
+          <button
             className="btn btn-error w-full shadow-lg hover:shadow-xl bg-gradient-to-r from-error to-error/80 border-0 hover:scale-105 transition-all duration-300 animate-bounce"
             onClick={handleComply}
           >
-            <span className="drop-shadow-md">🎯 I'm Back & Focused!</span>
+            <span className="drop-shadow-md">Comply</span>
           </button>
         )}
 

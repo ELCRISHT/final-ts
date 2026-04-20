@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
-import { 
-  Users, 
-  Eye, 
-  EyeOff, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Users,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
   AlertTriangle,
   ChevronDown,
   ChevronUp,
@@ -65,25 +65,25 @@ const StudentPeerPanel = ({ callId, currentUserId }) => {
   }
 
   return (
-    <div className="fixed left-6 top-24 z-[45]">
-      {/* Collapsed View */}
+    <>
+      {/* Collapsed — inline in top bar */}
       {!isExpanded && (
         <button
           onClick={() => setIsExpanded(true)}
-          className="bg-gradient-to-br from-base-100/95 to-primary/10 backdrop-blur-xl rounded-xl border border-primary/30 px-3 py-2 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-2"
+          className="fixed top-0 right-[310px] h-11 z-[61] flex items-center gap-2 px-3 border-l border-base-300/30 bg-base-200/50 hover:bg-base-300/50 transition-all duration-200"
         >
-          <Users className="size-4 text-primary" />
-          <span className="font-bold">{activePeers.length}</span>
-          <span className="text-xs opacity-70">Peers</span>
+          <Users className="size-3.5 text-primary" />
+          <span className="font-bold text-sm">{activePeers.length}</span>
+          <span className="text-xs text-base-content/60">Peer{activePeers.length !== 1 ? "s" : ""}</span>
           {distractedCount > 0 && (
-            <span className="badge badge-warning badge-xs animate-pulse shadow-md">{distractedCount}</span>
+            <span className="badge badge-warning badge-xs animate-pulse">{distractedCount}</span>
           )}
         </button>
       )}
 
-      {/* Expanded Panel */}
+      {/* Expanded Panel — drops down from top bar */}
       {isExpanded && (
-        <div className="bg-base-100/95 backdrop-blur-xl rounded-2xl border border-primary/20 shadow-2xl w-64 overflow-hidden animate-in slide-in-from-left duration-300">
+        <div className="fixed right-[390px] top-11 z-[60] w-64 bg-base-100/95 backdrop-blur-xl rounded-b-2xl border-x border-b border-primary/20 shadow-2xl overflow-hidden animate-in slide-in-from-top duration-200">
           {/* Header */}
           <div className="p-3 border-b border-primary/20 bg-gradient-to-r from-primary/10 to-secondary/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -135,13 +135,12 @@ const StudentPeerPanel = ({ callId, currentUserId }) => {
               {Object.values(peers).map((peer) => (
                 <div
                   key={peer.id}
-                  className={`flex items-center gap-2 p-2 rounded-lg transition-all ${
-                    peer.status === "focused"
-                      ? "bg-success/5 border-l-2 border-l-success"
-                      : peer.status === "offline"
+                  className={`flex items-center gap-2 p-2 rounded-lg transition-all ${peer.status === "focused"
+                    ? "bg-success/5 border-l-2 border-l-success"
+                    : peer.status === "offline"
                       ? "opacity-50 bg-base-200/30"
                       : "bg-warning/5 border-l-2 border-l-warning animate-pulse"
-                  }`}
+                    }`}
                 >
                   {/* Avatar */}
                   <div className="avatar">
@@ -179,13 +178,12 @@ const StudentPeerPanel = ({ callId, currentUserId }) => {
 
                   {/* Status Indicator */}
                   <div
-                    className={`size-2 rounded-full ${
-                      peer.status === "focused"
-                        ? "bg-success"
-                        : peer.status === "offline"
+                    className={`size-2 rounded-full ${peer.status === "focused"
+                      ? "bg-success"
+                      : peer.status === "offline"
                         ? "bg-base-300"
                         : "bg-warning animate-pulse"
-                    }`}
+                      }`}
                   />
                 </div>
               ))}
@@ -200,14 +198,14 @@ const StudentPeerPanel = ({ callId, currentUserId }) => {
                 {focusedCount === activePeers.length
                   ? "Great! Everyone is focused! 🎉"
                   : distractedCount > focusedCount
-                  ? "Let's refocus together! 💪"
-                  : "Keep up the good work! 📚"}
+                    ? "Let's refocus together! 💪"
+                    : "Keep up the good work! 📚"}
               </span>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

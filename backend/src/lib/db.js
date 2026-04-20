@@ -1,4 +1,9 @@
 import mongoose from "mongoose";
+import dns from "dns";
+
+// Use Google's public DNS to resolve MongoDB Atlas SRV records
+// (local router at fe80::1 refuses SRV queries)
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 export const connectDB = async () => {
   try {

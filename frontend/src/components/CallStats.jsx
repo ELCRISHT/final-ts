@@ -1,42 +1,112 @@
-import { Users as UsersIcon, TrendingUp, Activity } from "lucide-react";
+import { Users as UsersIcon, Activity, MonitorIcon } from "lucide-react";
+import { useState } from "react";
+import { Video, VideoOff, Mic, MicOff } from "lucide-react";
 
-const CallStats = ({ participants, authUser }) => {
+// ── Full-width Zoom-style top bar combining session stats + participants ──
+const CallStats = ({ participants, authUser, callId }) => {
+  const [showParticipants, setShowParticipants] = useState(false);
   const isTeacher = authUser?.role === "teacher";
-  const studentCount = participants.filter(p => 
-    !p.isLocalParticipant || authUser?.role === "student"
+  const studentCount = participants.filter(
+    (p) => !p.isLocalParticipant || authUser?.role === "student"
   ).length;
 
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[40] flex gap-3 animate-in slide-in-from-top duration-300">
-      {/* Participant Count Card - Compact */}
-      <div className="bg-gradient-to-br from-base-100/95 to-base-200/95 backdrop-blur-xl rounded-lg border border-primary/30 px-4 py-2 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-3">
-        <UsersIcon className="size-5 text-primary drop-shadow" />
-        <div>
-          <div className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent leading-none">{participants.length}</div>
-          <div className="text-[10px] opacity-60 font-medium uppercase tracking-wide">Participants</div>
+    <>
+      {/* Top Bar */}
+      <div className="fixed top-0 left-0 right-0 h-11 z-[60] flex items-center justify-between px-4 bg-base-200/90 backdrop-blur-md border-b border-base-300/40">
+        {/* Left: Brand + Session */}
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30">
+            <MonitorIcon className="size-3.5 text-blue-400" />
+          </div>
+          <span className="text-sm font-bold text-base-content/80 hidden sm:block">TrackSmart</span>
+          <span className="text-base-content/30 hidden sm:block">|</span>
+          <span className="text-xs text-base-content/50 font-mono hidden sm:block truncate max-w-[160px]">
+            {callId ? callId.slice(-8).toUpperCase() : "SESSION"}
+          </span>
         </div>
+
+        {/* Center: LIVE badge */}
+        <div className="flex items-center gap-2">
+          {isTeacher && studentCount > 0 && (
+            <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1 rounded-full">
+              <Activity className="size-3" />
+              {studentCount} student{studentCount !== 1 ? "s" : ""}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Participants toggle */}
+        <button
+          onClick={() => setShowParticipants(!showParticipants)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-base-300/50 hover:bg-base-300 border border-base-content/10 transition-all text-xs font-semibold"
+        >
+          <UsersIcon className="size-3.5 text-primary" />
+          <span className="font-bold">{participants.length}</span>
+          <span className="text-base-content/60">
+            Participant{participants.length !== 1 ? "s" : ""}
+          </span>
+        </button>
       </div>
 
-      {/* Teacher-specific stats - Compact */}
-      {isTeacher && studentCount > 0 && (
-        <div className="bg-gradient-to-br from-primary to-primary-focus backdrop-blur-xl rounded-lg border border-primary-content/30 px-4 py-2 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 flex items-center gap-3">
-          <Activity className="size-5 text-primary-content drop-shadow" />
-          <div>
-            <div className="text-2xl font-bold text-primary-content drop-shadow leading-none">{studentCount}</div>
-            <div className="text-[10px] text-primary-content opacity-90 font-medium uppercase tracking-wide">Students</div>
+      {/* Participants Dropdown Panel */}
+      {showParticipants && (
+        <div className="fixed top-11 right-0 z-[59] w-72 bg-base-100/95 backdrop-blur-xl shadow-2xl border-l border-base-300/40 border-b border-b-base-300/40 rounded-bl-2xl overflow-hidden animate-fade-in">
+          <div className="p-3 border-b border-base-200 bg-base-200/50">
+            <p className="text-xs font-bold text-base-content/70 uppercase tracking-wider">In This Call</p>
+          </div>
+          <div className="overflow-y-auto max-h-72">
+            {participants.map((participant) => {
+              const hasVideo = participant.publishedTracks?.includes("video");
+              const hasAudio = participant.publishedTracks?.includes("audio");
+              return (
+                <div
+                  key={participant.sessionId}
+                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-base-200/50 border-b border-base-200/40 last:border-b-0 transition-colors"
+                >
+                  <div className="avatar">
+                    <div className={`w-8 rounded-full ring-2 ${participant.isLocalParticipant ? "ring-primary" : "ring-base-300"}`}>
+                      <img
+                        src={participant.image || `https://avatar.iran.liara.run/public/${participant.userId?.charCodeAt(0) % 100}`}
+                        alt={participant.name || participant.userId}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+                      {participant.name || participant.userId}
+                      {participant.isLocalParticipant && (
+                        <span className="badge badge-primary badge-xs">You</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {hasVideo ? (
+                      <div className="p-1 bg-success/20 rounded-full border border-success/30">
+                        <Video className="size-3 text-success" />
+                      </div>
+                    ) : (
+                      <div className="p-1 bg-base-300/50 rounded-full">
+                        <VideoOff className="size-3 opacity-40" />
+                      </div>
+                    )}
+                    {hasAudio ? (
+                      <div className="p-1 bg-success/20 rounded-full border border-success/30">
+                        <Mic className="size-3 text-success" />
+                      </div>
+                    ) : (
+                      <div className="p-1 bg-error/20 rounded-full border border-error/30">
+                        <MicOff className="size-3 text-error" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
-
-      {/* Connection indicator - Compact */}
-      <div className="flex items-center gap-2 bg-gradient-to-r from-success to-success-focus backdrop-blur-xl rounded-lg border border-success-content/30 px-4 py-2 shadow-xl hover:scale-105 transition-transform">
-        <div className="relative">
-          <div className="size-2 rounded-full bg-success-content"></div>
-          <div className="absolute inset-0 size-2 rounded-full bg-success-content animate-ping"></div>
-        </div>
-        <span className="text-sm font-bold text-success-content drop-shadow uppercase tracking-wide">LIVE</span>
-      </div>
-    </div>
+    </>
   );
 };
 

@@ -1,70 +1,75 @@
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
-import { BellIcon, LogOutIcon, ShipWheelIcon } from "lucide-react";
+import { MonitorIcon, LogOutIcon } from "lucide-react";
 import ThemeSelector from "./ThemeSelector";
-import useLogout from "../hooks/useLogout";
+import { useQueryClient } from "@tanstack/react-query";
+import { logout } from "../lib/api";
 
 const Navbar = () => {
   const { authUser } = useAuthUser();
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isChatPage = location.pathname?.startsWith("/chat");
+  const isCallPage = location.pathname?.startsWith("/call");
 
-  // const queryClient = useQueryClient();
-  // const { mutate: logoutMutation } = useMutation({
-  //   mutationFn: logout,
-  //   onSuccess: () => queryClient.invalidateQueries({ queryKey: ["authUser"] }),
-  // });
+  const handleLogout = async () => {
+    try {
+      await logout(); // clears server-side session cookie
+    } catch {
+      // proceed even if the request fails
+    }
+    queryClient.clear(); // wipe authUser from React Query cache
+    navigate("/login", { replace: true });
+  };
 
-  const { logoutMutation } = useLogout();
+  if (isCallPage) return null; // No navbar on call page — it has its own UI
 
   return (
-    <nav className="bg-base-200 border-b border-base-300 sticky top-0 z-30 h-16 flex items-center">
+    <nav className="sticky top-0 z-30 h-14 flex items-center border-b border-white/5 bg-[#0a0f1e]/90 backdrop-blur-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-end w-full">
-          {/* LOGO - ONLY IN THE CHAT PAGE */}
+        <div className="flex items-center justify-between w-full">
+          {/* Logo — only on chat page (sidebar hidden) */}
           {isChatPage && (
-            <div className="pl-5">
-              <Link to="/" className="flex items-center gap-2.5">
-                <ShipWheelIcon className="size-9 text-primary" />
-                <span className="text-3xl font-bold font-mono bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary  tracking-wider">
-                  TRACKSMART
-                </span>
-              </Link>
-            </div>
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                <MonitorIcon className="size-4 text-blue-400" />
+              </div>
+              <span className="text-base font-bold gradient-text tracking-tight">
+                TrackSmart
+              </span>
+            </Link>
           )}
 
-          <div className="flex items-center gap-3 sm:gap-4 ml-auto">
-            <Link to={"/notifications"}>
-              <button className="btn btn-ghost btn-circle">
-                <BellIcon className="h-6 w-6 text-base-content opacity-70" />
-              </button>
-            </Link>
-          </div>
+          <div className="flex items-center gap-3 ml-auto">
+            {/* Theme Selector */}
+            <ThemeSelector />
 
-          {/* TODO */}
-          <ThemeSelector />
-
-          <div className="avatar">
-            <div className="w-9 rounded-full">
-              <img src={authUser?.profilePic} alt="User Avatar" rel="noreferrer" />
+            {/* User Avatar */}
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-blue-500/30">
+                <img
+                  src={authUser?.profilePic}
+                  alt="User Avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#0a0f1e]" />
             </div>
-          </div>
 
-          {/* Logout button */}
-          <button 
-            className="btn btn-ghost btn-circle" 
-            onClick={() => {
-              console.log("Logout clicked!");
-              localStorage.removeItem('token');
-              localStorage.clear();
-              window.location.href = '/login';
-            }}
-          >
-            <LogOutIcon className="h-6 w-6 text-base-content opacity-70" />
-          </button>
+            {/* Logout */}
+            <button
+              className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+              onClick={handleLogout}
+              title="Sign out"
+            >
+              <LogOutIcon className="size-4" />
+            </button>
+          </div>
         </div>
       </div>
     </nav>
   );
 };
+
 export default Navbar;

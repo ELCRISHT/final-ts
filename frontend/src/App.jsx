@@ -3,12 +3,10 @@ import { Navigate, Route, Routes } from "react-router";
 import HomePage from "./pages/HomePage.jsx";
 import SignUpPage from "./pages/SignUpPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import NotificationsPage from "./pages/NotificationsPage.jsx";
 import CallPage from "./pages/CallPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
-import FriendsPage from "./pages/FriendsPage.jsx"; // <--- 1. IMPORT ADDED
-import RoomsPage from "./pages/RoomsPage.jsx"; // Import Rooms Page
+import RoomsPage from "./pages/RoomsPage.jsx";
 
 import { Toaster } from "react-hot-toast";
 
@@ -54,21 +52,6 @@ const App = () => {
           }
         />
 
-        {/* --- 2. FRIENDS ROUTE ADDED HERE --- */}
-        <Route
-          path="/friends"
-          element={
-            isAuthenticated && isOnboarded ? (
-              <Layout showSidebar={true}>
-                <FriendsPage />
-              </Layout>
-            ) : (
-              <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />
-            )
-          }
-        />
-        {/* ----------------------------------- */}
-
         {/* ROOMS ROUTE */}
         <Route
           path="/rooms"
@@ -76,19 +59,6 @@ const App = () => {
             isAuthenticated && isOnboarded ? (
               <Layout showSidebar={true}>
                 <RoomsPage />
-              </Layout>
-            ) : (
-              <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />
-            )
-          }
-        />
-
-        <Route
-          path="/notifications"
-          element={
-            isAuthenticated && isOnboarded ? (
-              <Layout showSidebar={true}>
-                <NotificationsPage />
               </Layout>
             ) : (
               <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />

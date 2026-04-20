@@ -3,7 +3,7 @@ import { Users as UsersIcon, Video, VideoOff, Mic, MicOff } from "lucide-react";
 const ParticipantsList = ({ participants, isOpen, onToggle }) => {
   if (!isOpen) {
     return (
-      <div className="fixed top-6 right-6 z-[55]">
+      <div className="fixed top-[72px] right-6 z-[55]">
         <button 
           className="btn btn-sm bg-gradient-to-r from-primary/20 to-secondary/20 backdrop-blur-xl border-primary/30 gap-2 hover:scale-105 shadow-xl hover:shadow-2xl transition-all duration-200"
           onClick={onToggle}
@@ -17,7 +17,7 @@ const ParticipantsList = ({ participants, isOpen, onToggle }) => {
   }
 
   return (
-    <div className="fixed top-6 right-6 z-[55] w-80 animate-in slide-in-from-right duration-300">
+    <div className="fixed top-[72px] right-6 z-[55] w-80 animate-in slide-in-from-right duration-300">
       {/* Header Button */}
       <button 
         className="btn btn-sm bg-gradient-to-r from-primary/20 to-secondary/20 backdrop-blur-xl border-primary/30 gap-2 hover:scale-105 w-full mb-2 shadow-xl hover:shadow-2xl transition-all duration-200"

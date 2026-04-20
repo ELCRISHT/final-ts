@@ -9,11 +9,10 @@ import {
   StreamVideo,
   StreamVideoClient,
   StreamCall,
-  CallControls,
-  SpeakerLayout,
   StreamTheme,
   CallingState,
   useCallStateHooks,
+  useCall,
   ParticipantView,
 } from "@stream-io/video-react-sdk";
 
@@ -22,7 +21,6 @@ import toast from "react-hot-toast";
 import PageLoader from "../components/PageLoader";
 import StudentMonitoringPanel from "../components/StudentMonitoringPanel";
 import TeacherMonitoringDashboard from "../components/TeacherMonitoringDashboard";
-import ParticipantsList from "../components/ParticipantsList";
 import CallStats from "../components/CallStats";
 import CallGroupChat from "../components/CallGroupChat";
 import StudentPeerPanel from "../components/StudentPeerPanel";
@@ -118,7 +116,7 @@ const CallPage = () => {
                 onToggle={() => setIsChatOpen(!isChatOpen)} 
               />
               
-              <CallContent authUser={authUser} />
+              <CallContent authUser={authUser} isChatOpen={isChatOpen} callId={callId} />
             </StreamCall>
           </StreamVideo>
         ) : (
@@ -131,16 +129,43 @@ const CallPage = () => {
   );
 };
 
-const CallContent = ({ authUser }) => {
-  const { useCallCallingState, useParticipants } = useCallStateHooks();
+const CallContent = ({ authUser, isChatOpen, callId }) => {
+  const { useCallCallingState, useParticipants, useCameraState, useMicrophoneState } = useCallStateHooks();
   const callingState = useCallCallingState();
   const navigate = useNavigate();
   const participants = useParticipants();
-  const [showParticipants, setShowParticipants] = useState(false);
-
-  if (callingState === CallingState.LEFT) return navigate("/");
-
+  const call = useCall();
+  const { camera, isMute: isCamOff } = useCameraState();
+  const { microphone, isMute: isMicOff } = useMicrophoneState();
   const isTeacher = authUser?.role === "teacher";
+
+  // ── Navigate home when this user leaves ──
+  useEffect(() => {
+    if (callingState === CallingState.LEFT) navigate("/");
+  }, [callingState, navigate]);
+
+  // ── Navigate home when teacher ends the call for everyone ──
+  useEffect(() => {
+    if (!call) return;
+    const handleEnded = () => navigate("/");
+    call.on("call.ended", handleEnded);
+    return () => call.off("call.ended", handleEnded);
+  }, [call, navigate]);
+
+  // ── End call: teacher ends for ALL, student just leaves ──
+  const handleEndCall = async () => {
+    try {
+      if (isTeacher) {
+        await call?.end();   // broadcasts call.ended → all participants navigate home
+      } else {
+        await call?.leave(); // only this participant leaves
+      }
+    } catch (err) {
+      console.error("Error ending/leaving call:", err);
+      navigate("/");
+    }
+  };
+
   
   // Remove duplicate participants by userId (keep only unique users)
   const uniqueParticipants = participants.reduce((acc, participant) => {
@@ -168,24 +193,18 @@ const CallContent = ({ authUser }) => {
   return (
     <div className="w-full h-full relative bg-base-300">
       <StreamTheme>
-        {/* Call Stats - Top Center */}
-        <CallStats participants={uniqueParticipants} authUser={authUser} />
-        
-        {/* Participant List - Top Right */}
-        <ParticipantsList 
-          participants={uniqueParticipants}
-          isOpen={showParticipants}
-          onToggle={() => setShowParticipants(!showParticipants)}
-        />
+        {/* Top Bar: Session Info + Participants */}
+        <CallStats participants={uniqueParticipants} authUser={authUser} callId={callId} />
 
         {/* Video Grid Layout */}
         <div 
           className="w-full h-full overflow-auto" 
           style={{ 
             paddingLeft: isTeacher ? '410px' : '10px',
-            paddingRight: '10px',
-            paddingTop: '75px',
-            paddingBottom: '100px'
+            paddingRight: isChatOpen ? '348px' : '10px',
+            paddingTop: '52px',
+            paddingBottom: '100px',
+            transition: 'padding-right 0.3s ease'
           }}
         >
           <div 
@@ -259,10 +278,89 @@ const CallContent = ({ authUser }) => {
           </div>
         </div>
         
-        {/* Call Controls - Fixed at bottom like Zoom */}
+        {/* Call Controls — hook-driven custom bar */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-base-300 to-transparent pb-4 pt-8">
-          <div className="flex justify-center">
-            <CallControls />
+          <div className="flex justify-center items-center gap-3">
+
+            {/* Microphone */}
+            <button
+              onClick={() => microphone.toggle()}
+              title={isMicOff ? "Unmute" : "Mute"}
+              style={{
+                background: isMicOff ? '#ef4444' : 'rgba(255,255,255,0.15)',
+                border: 'none', borderRadius: '50%',
+                width: '52px', height: '52px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'white', transition: 'background 0.2s',
+              }}
+            >
+              {isMicOff ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+                </svg>
+              )}
+            </button>
+
+            {/* Camera */}
+            <button
+              onClick={() => camera.toggle()}
+              title={isCamOff ? "Turn on camera" : "Turn off camera"}
+              style={{
+                background: isCamOff ? '#ef4444' : 'rgba(255,255,255,0.15)',
+                border: 'none', borderRadius: '50%',
+                width: '52px', height: '52px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'white', transition: 'background 0.2s',
+              }}
+            >
+              {isCamOff ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21 6.5l-4-4-12 12 4 4 12-12zM2.77 5.56L1.5 6.83l2.9 2.9C4.14 10.22 4 10.85 4 11.5v9h16v-2.46l2 2 1.27-1.27-5-5L2.77 5.56zM6 18.5v-5.17l5.17 5.17H6zm14-5v-8l-6 6 6 2z"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                </svg>
+              )}
+            </button>
+
+            {/* Screen Share — use native Stream SDK button which reliably works */}
+            <button
+              onClick={() => call?.screenShare?.toggle?.()}
+              title="Share screen"
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                border: 'none', borderRadius: '50%',
+                width: '52px', height: '52px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'white',
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
+              </svg>
+            </button>
+
+            {/* End Call */}
+            <button
+              onClick={handleEndCall}
+              title={isTeacher ? "End session for everyone" : "Leave session"}
+              style={{
+                background: '#ef4444',
+                border: 'none', borderRadius: '50%',
+                width: '52px', height: '52px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'white',
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+              </svg>
+            </button>
           </div>
         </div>
       </StreamTheme>
