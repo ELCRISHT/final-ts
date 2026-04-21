@@ -258,3 +258,19 @@
 .str-chat__message-input {
   border-top: 1px solid #ddd;
 }
+
+/* ===================== STREAM VIDEO OVERRIDES ===================== */
+.str-video {
+  background: transparent !important;
+  --str-video-bg: transparent !important;
+  color: inherit !important;
+}
+
+.str-video__participant-view {
+  background: transparent !important;
+}
+
+.str-video__video {
+  background: transparent !important;
+  object-fit: contain !important;
+}

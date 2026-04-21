@@ -70,11 +70,11 @@ const StudentPeerPanel = ({ callId, currentUserId }) => {
       {!isExpanded && (
         <button
           onClick={() => setIsExpanded(true)}
-          className="fixed top-0 right-[310px] h-11 z-[61] flex items-center gap-2 px-3 border-l border-base-300/30 bg-base-200/50 hover:bg-base-300/50 transition-all duration-200"
+          className="fixed top-0 right-[140px] md:right-[310px] h-11 z-[61] flex items-center gap-2 px-3 border-l border-base-300/30 bg-base-200/50 hover:bg-base-300/50 transition-all duration-200"
         >
           <Users className="size-3.5 text-primary" />
           <span className="font-bold text-sm">{activePeers.length}</span>
-          <span className="text-xs text-base-content/60">Peer{activePeers.length !== 1 ? "s" : ""}</span>
+          <span className="text-xs text-base-content/60 hidden sm:inline">Peer{activePeers.length !== 1 ? "s" : ""}</span>
           {distractedCount > 0 && (
             <span className="badge badge-warning badge-xs animate-pulse">{distractedCount}</span>
           )}
@@ -83,7 +83,7 @@ const StudentPeerPanel = ({ callId, currentUserId }) => {
 
       {/* Expanded Panel — drops down from top bar */}
       {isExpanded && (
-        <div className="fixed right-[390px] top-11 z-[60] w-64 bg-base-100/95 backdrop-blur-xl rounded-b-2xl border-x border-b border-primary/20 shadow-2xl overflow-hidden animate-in slide-in-from-top duration-200">
+        <div className="fixed right-4 md:right-[310px] top-11 z-[60] w-64 max-w-[calc(100vw-2rem)] bg-base-100/95 backdrop-blur-xl rounded-b-2xl border-x border-b border-primary/20 shadow-2xl overflow-hidden animate-in slide-in-from-top duration-200">
           {/* Header */}
           <div className="p-3 border-b border-primary/20 bg-gradient-to-r from-primary/10 to-secondary/10 flex items-center justify-between">
             <div className="flex items-center gap-2">

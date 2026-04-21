@@ -11,7 +11,7 @@ import { useEffect, useRef, useCallback } from 'react';
  * @param {Function} onDetected  — callback(score) when phone detected in a frame
  * @param {number}   intervalMs  — how often to sample a frame (default 2500 ms)
  */
-const usePhoneDetection = (enabled, onDetected, intervalMs = 2500) => {
+const usePhoneDetection = (enabled, onDetected, intervalMs = 1000) => {
   const workerRef   = useRef(null);
   const videoRef    = useRef(null);
   const streamRef   = useRef(null);
@@ -58,8 +58,8 @@ const usePhoneDetection = (enabled, onDetected, intervalMs = 2500) => {
       if (type === 'result') {
         if (detected) {
           stableRef.current += 1;
-          // Require 2 consecutive positive frames to reduce false positives
-          if (stableRef.current >= 2) {
+          // Trigger after just 1 positive frame for instant detection
+          if (stableRef.current >= 1) {
             onDetectedRef.current(score);
             stableRef.current = 0; // reset so we don't spam
           }

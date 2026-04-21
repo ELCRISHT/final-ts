@@ -19,7 +19,8 @@ export const getAuthUser = async () => {
   try {
     const res = await axiosInstance.get("/auth/me");
     return res.data;
-  } catch {
+  } catch (error) {
+    console.log("Error in getAuthUser:", error);
     return null;
   }
 };
@@ -63,7 +64,8 @@ export async function getStreamToken() {
   const response = await axiosInstance.get("/chat/token");
   return response.data;
 }
-// Monitoring API
+
+// ── Monitoring API ────────────────────────────────────────────────────────────
 export const saveMonitoringEvent = async (data) => {
   const response = await axiosInstance.post("/monitoring/event", data);
   return response.data;
@@ -76,5 +78,11 @@ export const getReportData = async (studentId, callId) => {
 
 export const saveTeacherNote = async (data) => {
   const response = await axiosInstance.post("/monitoring/notes", data);
+  return response.data;
+};
+
+// Student personal stats (used on HomePage dashboard)
+export const getMyStats = async () => {
+  const response = await axiosInstance.get("/monitoring/my-stats");
   return response.data;
 };

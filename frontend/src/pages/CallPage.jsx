@@ -4,6 +4,7 @@ import useAuthUser from "../hooks/useAuthUser";
 import { useQuery } from "@tanstack/react-query";
 import { getStreamToken } from "../lib/api";
 import { socket, connectSocket, disconnectSocket } from "../lib/socket";
+import { HomeIcon, RefreshCwIcon } from "lucide-react";
 
 import {
   StreamVideo,
@@ -33,11 +34,14 @@ const CallPage = () => {
   const [call, setCall] = useState(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [callError, setCallError] = useState(false);
+  const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
 
   const { authUser, isLoading } = useAuthUser();
+  const navigate = useNavigate();
 
-  // Temporary Fix: If your user was created before roles existed, default to 'student'
-  if (authUser && !authUser.role) authUser.role = "student";
+  // ── Safe role derivation — never mutate authUser directly ──
+  const userRole = authUser?.role ?? "student";
 
   const { data: tokenData } = useQuery({
     queryKey: ["streamToken"],
@@ -58,6 +62,7 @@ const CallPage = () => {
   }, [callId, authUser]);
 
   useEffect(() => {
+    let videoClient;
     const initCall = async () => {
       if (!tokenData?.token || !authUser || !callId) return;
 
@@ -68,7 +73,7 @@ const CallPage = () => {
           image: authUser.profilePic,
         };
 
-        const videoClient = new StreamVideoClient({
+        videoClient = new StreamVideoClient({
           apiKey: STREAM_API_KEY,
           user,
           token: tokenData.token,
@@ -82,15 +87,54 @@ const CallPage = () => {
       } catch (error) {
         console.error("Error joining call:", error);
         toast.error("Could not join the call. Please try again.");
+        setCallError(true);
       } finally {
         setIsConnecting(false);
       }
     };
 
     initCall();
+
+    return () => {
+      if (videoClient) {
+        videoClient.disconnectUser();
+      }
+    };
   }, [tokenData, authUser, callId]);
 
   if (isLoading || isConnecting) return <PageLoader />;
+
+  // ── Styled error state ──────────────────────────────────────────────────────
+  if (callError || (!client && !isConnecting)) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-base-300">
+        <div className="text-center p-8 rounded-2xl bg-base-100/80 border border-error/20 shadow-2xl max-w-sm w-full mx-4 animate-fade-in">
+          <div className="p-4 rounded-2xl bg-error/10 border border-error/20 mb-4 inline-flex">
+            <svg xmlns="http://www.w3.org/2000/svg" className="size-10 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-base-content mb-2">Connection Failed</h2>
+          <p className="text-sm text-base-content/60 mb-6">Could not join this session. Check your connection and try again.</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => { setCallError(false); setIsConnecting(true); window.location.reload(); }}
+              className="ts-btn-primary btn btn-sm gap-2 px-5"
+            >
+              <RefreshCwIcon className="size-4" /> Retry
+            </button>
+            <button
+              onClick={() => navigate("/")}
+              className="btn btn-sm btn-ghost gap-2 px-5 text-slate-400 border border-white/10"
+            >
+              <HomeIcon className="size-4" /> Go Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-base-300">
@@ -99,14 +143,17 @@ const CallPage = () => {
           <StreamVideo client={client}>
             <StreamCall call={call}>
               {/* MONITORING PANELS */}
-              {authUser?.role === "student" && (
+              {userRole === "student" && (
                 <>
                   <StudentMonitoringPanel callId={callId} userId={authUser._id} />
                   <StudentPeerPanel callId={callId} currentUserId={authUser._id} />
                 </>
               )}
-              {authUser?.role === "teacher" && (
-                <TeacherMonitoringDashboard callId={callId} />
+              {userRole === "teacher" && (
+                <TeacherMonitoringDashboard
+                  callId={callId}
+                  onExpandChange={setIsDashboardExpanded}
+                />
               )}
               
               {/* GROUP CHAT */}
@@ -116,12 +163,18 @@ const CallPage = () => {
                 onToggle={() => setIsChatOpen(!isChatOpen)} 
               />
               
-              <CallContent authUser={authUser} isChatOpen={isChatOpen} callId={callId} />
+              <CallContent
+                authUser={authUser}
+                userRole={userRole}
+                isChatOpen={isChatOpen}
+                callId={callId}
+                isDashboardExpanded={isDashboardExpanded}
+              />
             </StreamCall>
           </StreamVideo>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p>Could not initialize call. Please refresh.</p>
+            <span className="loading loading-spinner loading-lg text-primary" />
           </div>
         )}
       </div>
@@ -129,7 +182,7 @@ const CallPage = () => {
   );
 };
 
-const CallContent = ({ authUser, isChatOpen, callId }) => {
+const CallContent = ({ authUser, userRole, isChatOpen, callId, isDashboardExpanded }) => {
   const { useCallCallingState, useParticipants, useCameraState, useMicrophoneState } = useCallStateHooks();
   const callingState = useCallCallingState();
   const navigate = useNavigate();
@@ -137,7 +190,7 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
   const call = useCall();
   const { camera, isMute: isCamOff } = useCameraState();
   const { microphone, isMute: isMicOff } = useMicrophoneState();
-  const isTeacher = authUser?.role === "teacher";
+  const isTeacher = userRole === "teacher";
 
   // ── Navigate home when this user leaves ──
   useEffect(() => {
@@ -156,24 +209,23 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
   const handleEndCall = async () => {
     try {
       if (isTeacher) {
-        await call?.end();   // broadcasts call.ended → all participants navigate home
+        await call?.endCall();
       } else {
-        await call?.leave(); // only this participant leaves
+        await call?.leave();
       }
+      navigate("/");
     } catch (err) {
       console.error("Error ending/leaving call:", err);
       navigate("/");
     }
   };
 
-  
   // Remove duplicate participants by userId (keep only unique users)
   const uniqueParticipants = participants.reduce((acc, participant) => {
     const existingIndex = acc.findIndex(p => p.userId === participant.userId);
     if (existingIndex === -1) {
       acc.push(participant);
     } else {
-      // If duplicate, prefer the one with video track
       if (participant.publishedTracks.includes('video') && 
           !acc[existingIndex].publishedTracks.includes('video')) {
         acc[existingIndex] = participant;
@@ -190,34 +242,35 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
     return 4;
   };
 
+  // ── Dynamic padding — responsive classes for mobile vs desktop ──
+  const leftPadClass = isTeacher 
+    ? (isDashboardExpanded ? "pl-[96px] lg:pl-[410px]" : "pl-[96px]") 
+    : "pl-2";
+    
+  const rightPadClass = isChatOpen ? "pr-2 lg:pr-[348px]" : "pr-2";
+
   return (
-    <div className="w-full h-full relative bg-base-300">
-      <StreamTheme>
+    <div className="w-full h-full relative bg-[#0a0f1e] overflow-hidden">
+      <StreamTheme className="w-full h-full flex flex-col">
         {/* Top Bar: Session Info + Participants */}
         <CallStats participants={uniqueParticipants} authUser={authUser} callId={callId} />
 
         {/* Video Grid Layout */}
         <div 
-          className="w-full h-full overflow-auto" 
-          style={{ 
-            paddingLeft: isTeacher ? '410px' : '10px',
-            paddingRight: isChatOpen ? '348px' : '10px',
-            paddingTop: '52px',
-            paddingBottom: '100px',
-            transition: 'padding-right 0.3s ease'
-          }}
+          className={`w-full h-full overflow-hidden bg-[#0a0f1e] pt-[52px] pb-[100px] transition-all duration-300 flex flex-col ${leftPadClass} ${rightPadClass}`} 
         >
           <div 
-            className="grid gap-4 h-full w-full p-4"
+            className="grid gap-4 h-full w-full p-4 overflow-hidden"
             style={{
               gridTemplateColumns: `repeat(${getGridCols(uniqueParticipants.length)}, 1fr)`,
-              gridAutoRows: 'minmax(200px, 1fr)',
+              gridTemplateRows: uniqueParticipants.length <= getGridCols(uniqueParticipants.length) ? '1fr' : undefined,
+              gridAutoRows: 'minmax(0, 1fr)',
             }}
           >
             {uniqueParticipants.map((participant) => (
               <div
                 key={participant.sessionId}
-                className="relative bg-base-200 rounded-xl overflow-hidden shadow-xl border-2 border-base-300 hover:border-primary/50 transition-all"
+                className="relative bg-[#0d1b2e] rounded-xl overflow-hidden shadow-2xl border border-white/10 hover:border-blue-500/50 transition-all h-full min-h-0 w-full min-w-0"
               >
                 <ParticipantView
                   participant={participant}
@@ -225,12 +278,12 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
                 />
                 
                 {/* Participant Info Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-base-300/95 to-transparent p-3">
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#050a15]/90 via-[#050a15]/50 to-transparent p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="avatar placeholder">
-                        <div className="bg-primary text-primary-content rounded-full w-8">
-                          <span className="text-xs">{participant.name?.charAt(0) || "U"}</span>
+                        <div className="bg-blue-600 text-white rounded-full w-8">
+                          <span className="text-xs font-semibold">{participant.name?.charAt(0) || "U"}</span>
                         </div>
                       </div>
                       <span className="text-sm font-semibold text-white drop-shadow-lg">
@@ -242,14 +295,14 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
                     {/* Audio/Video Status */}
                     <div className="flex gap-2">
                       {!participant.publishedTracks.includes("audio") && (
-                        <div className="badge badge-error badge-sm gap-1">
+                        <div className="badge badge-error badge-sm gap-1 border-none shadow-md">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
                           </svg>
                         </div>
                       )}
                       {!participant.publishedTracks.includes("video") && (
-                        <div className="badge badge-error badge-sm gap-1">
+                        <div className="badge badge-error badge-sm gap-1 border-none shadow-md">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
                             <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
@@ -263,11 +316,11 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
                 {/* Connection Quality Indicator */}
                 {participant.connectionQuality && (
                   <div className="absolute top-2 right-2">
-                    <div className={`badge badge-sm ${
-                      participant.connectionQuality === 'excellent' ? 'badge-success' :
-                      participant.connectionQuality === 'good' ? 'badge-info' :
-                      participant.connectionQuality === 'poor' ? 'badge-warning' :
-                      'badge-error'
+                    <div className={`badge badge-sm border-none shadow-md ${
+                      participant.connectionQuality === 'excellent' ? 'bg-green-500 text-white' :
+                      participant.connectionQuality === 'good' ? 'bg-blue-500 text-white' :
+                      participant.connectionQuality === 'poor' ? 'bg-amber-500 text-white' :
+                      'bg-red-500 text-white'
                     }`}>
                       {participant.connectionQuality}
                     </div>
@@ -278,28 +331,31 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
           </div>
         </div>
         
-        {/* Call Controls — hook-driven custom bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-base-300 to-transparent pb-4 pt-8">
-          <div className="flex justify-center items-center gap-3">
+        {/* Call Controls */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-[#050a15]/95 via-[#050a15]/70 to-transparent pb-6 pt-16 pointer-events-none">
+          <div className="flex justify-center items-center gap-4 pointer-events-auto">
 
             {/* Microphone */}
             <button
               onClick={() => microphone.toggle()}
               title={isMicOff ? "Unmute" : "Mute"}
+              className="hover:scale-105 active:scale-95 transition-all shadow-xl"
               style={{
                 background: isMicOff ? '#ef4444' : 'rgba(255,255,255,0.15)',
-                border: 'none', borderRadius: '50%',
-                width: '52px', height: '52px',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)', 
+                borderRadius: '50%',
+                width: '56px', height: '56px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'white', transition: 'background 0.2s',
+                cursor: 'pointer', color: 'white',
               }}
             >
               {isMicOff ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
                 </svg>
               )}
@@ -309,38 +365,44 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
             <button
               onClick={() => camera.toggle()}
               title={isCamOff ? "Turn on camera" : "Turn off camera"}
+              className="hover:scale-105 active:scale-95 transition-all shadow-xl"
               style={{
                 background: isCamOff ? '#ef4444' : 'rgba(255,255,255,0.15)',
-                border: 'none', borderRadius: '50%',
-                width: '52px', height: '52px',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)', 
+                borderRadius: '50%',
+                width: '56px', height: '56px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'white', transition: 'background 0.2s',
+                cursor: 'pointer', color: 'white',
               }}
             >
               {isCamOff ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M21 6.5l-4-4-12 12 4 4 12-12zM2.77 5.56L1.5 6.83l2.9 2.9C4.14 10.22 4 10.85 4 11.5v9h16v-2.46l2 2 1.27-1.27-5-5L2.77 5.56zM6 18.5v-5.17l5.17 5.17H6zm14-5v-8l-6 6 6 2z"/>
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
                 </svg>
               )}
             </button>
 
-            {/* Screen Share — use native Stream SDK button which reliably works */}
+            {/* Screen Share */}
             <button
               onClick={() => call?.screenShare?.toggle?.()}
               title="Share screen"
+              className="hover:scale-105 active:scale-95 transition-all shadow-xl"
               style={{
                 background: 'rgba(255,255,255,0.15)',
-                border: 'none', borderRadius: '50%',
-                width: '52px', height: '52px',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)', 
+                borderRadius: '50%',
+                width: '56px', height: '56px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', color: 'white',
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
               </svg>
             </button>
@@ -349,15 +411,17 @@ const CallContent = ({ authUser, isChatOpen, callId }) => {
             <button
               onClick={handleEndCall}
               title={isTeacher ? "End session for everyone" : "Leave session"}
+              className="hover:scale-105 active:scale-95 transition-all shadow-xl"
               style={{
                 background: '#ef4444',
                 border: 'none', borderRadius: '50%',
-                width: '52px', height: '52px',
+                width: '64px', height: '56px',
+                borderRadius: '16px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', color: 'white',
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
               </svg>
             </button>

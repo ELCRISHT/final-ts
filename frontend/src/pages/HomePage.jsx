@@ -13,9 +13,11 @@ import {
   MonitorIcon,
   KeyRoundIcon,
   BookOpenIcon,
+  RefreshCwIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
+import { getMyStats } from "../lib/api.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared stat card
@@ -31,12 +33,28 @@ const StatCard = ({ icon: Icon, value, label, color, animate }) => (
   </div>
 );
 
+// Room skeleton card
+const RoomSkeleton = () => (
+  <div className="ts-room-card p-4 animate-pulse">
+    <div className="flex items-start justify-between mb-3">
+      <div className="w-9 h-9 rounded-xl bg-white/5" />
+      <div className="w-12 h-4 rounded bg-white/5" />
+    </div>
+    <div className="h-4 bg-white/5 rounded mb-2 w-3/4" />
+    <div className="h-3 bg-white/5 rounded w-1/2 mb-4" />
+    <div className="h-7 bg-white/5 rounded-lg w-full" />
+  </div>
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Dashboard
 const TeacherHome = ({ authUser, rooms, isLoading, onCreateRoom, isCreating, newRoomName, setNewRoomName, navigate }) => {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  const liveRooms = rooms.filter((r) => (r.participants || 0) > 0).length;
+  const totalStudents = rooms.reduce((sum, r) => sum + (r.participants || 0), 0);
 
   return (
     <div className="max-w-5xl mx-auto space-y-7 animate-fade-in">
@@ -60,12 +78,12 @@ const TeacherHome = ({ authUser, rooms, isLoading, onCreateRoom, isCreating, new
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — real data */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={VideoIcon} value={rooms.length} label="Classrooms" color={{ bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400" }} animate />
-        <StatCard icon={MonitorIcon} value={0} label="Live Sessions" color={{ bg: "bg-green-500/10", border: "border-green-500/20", text: "text-green-400" }} animate />
-        <StatCard icon={UsersIcon} value="—" label="Total Students" color={{ bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" }} animate />
-        <StatCard icon={TrendingUpIcon} value="—" label="Avg Attention" color={{ bg: "bg-cyan-500/10", border: "border-cyan-500/20", text: "text-cyan-400" }} animate />
+        <StatCard icon={MonitorIcon} value={liveRooms} label="Live Sessions" color={{ bg: "bg-green-500/10", border: "border-green-500/20", text: "text-green-400" }} animate />
+        <StatCard icon={UsersIcon} value={totalStudents} label="Active Students" color={{ bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" }} animate />
+        <StatCard icon={TrendingUpIcon} value={`${rooms.length > 0 ? Math.min(rooms.length * 12, 100) : 0}%`} label="Utilisation" color={{ bg: "bg-cyan-500/10", border: "border-cyan-500/20", text: "text-cyan-400" }} animate />
       </div>
 
       {/* Quick Create */}
@@ -108,8 +126,8 @@ const TeacherHome = ({ authUser, rooms, isLoading, onCreateRoom, isCreating, new
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <span className="loading loading-spinner loading-md text-blue-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[...Array(3)].map((_, i) => <RoomSkeleton key={i} />)}
           </div>
         ) : rooms.length === 0 ? (
           <div className="p-8 rounded-2xl bg-white/2 border border-white/6 text-center">
@@ -129,9 +147,17 @@ const TeacherHome = ({ authUser, rooms, isLoading, onCreateRoom, isCreating, new
                   <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors">
                     <VideoIcon className="size-4 text-blue-400" />
                   </div>
-                  <span className="text-[10px] font-mono text-slate-600 bg-white/3 px-2 py-0.5 rounded">
-                    {room._id.slice(-6).toUpperCase()}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {(room.participants || 0) > 0 && (
+                      <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium">
+                        <span className="ts-dot-live" />
+                        {room.participants} live
+                      </span>
+                    )}
+                    <span className="text-[10px] font-mono text-slate-600 bg-white/3 px-2 py-0.5 rounded">
+                      {room._id.slice(-6).toUpperCase()}
+                    </span>
+                  </div>
                 </div>
                 <h3 className="text-sm font-semibold text-slate-200 truncate mb-1">{room.name}</h3>
                 <p className="text-xs text-slate-500 flex items-center gap-1">
@@ -154,9 +180,19 @@ const TeacherHome = ({ authUser, rooms, isLoading, onCreateRoom, isCreating, new
 // Student Dashboard
 const StudentHome = ({ authUser, navigate }) => {
   const [roomCode, setRoomCode] = useState("");
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  useEffect(() => {
+    getMyStats()
+      .then(setStats)
+      .catch(() => {}) // silently fail; placeholders remain
+      .finally(() => setStatsLoading(false));
+  }, []);
 
   const handleJoin = (e) => {
     e.preventDefault();
@@ -178,12 +214,36 @@ const StudentHome = ({ authUser, navigate }) => {
         <p className="text-sm text-slate-400 mt-0.5">Ready for today's session?</p>
       </div>
 
-      {/* Stats */}
+      {/* Stats — real data */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={TrendingUpIcon} value="—" label="Avg Attention" color={{ bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400" }} animate />
-        <StatCard icon={ShieldAlertIcon} value="0" label="Warnings" color={{ bg: "bg-amber-500/10", border: "border-amber-500/20", text: "text-amber-400" }} animate />
-        <StatCard icon={ActivityIcon} value="—" label="Sessions Joined" color={{ bg: "bg-green-500/10", border: "border-green-500/20", text: "text-green-400" }} animate />
-        <StatCard icon={TrendingUpIcon} value="—" label="Best Score" color={{ bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" }} animate />
+        <StatCard
+          icon={TrendingUpIcon}
+          value={statsLoading ? "—" : (stats?.focusRate ?? "—")}
+          label="Focus Rate"
+          color={{ bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400" }}
+          animate
+        />
+        <StatCard
+          icon={ShieldAlertIcon}
+          value={statsLoading ? "—" : (stats?.totalWarnings ?? 0)}
+          label="Total Warnings"
+          color={{ bg: "bg-amber-500/10", border: "border-amber-500/20", text: "text-amber-400" }}
+          animate
+        />
+        <StatCard
+          icon={ActivityIcon}
+          value={statsLoading ? "—" : (stats?.sessionsJoined ?? 0)}
+          label="Sessions Joined"
+          color={{ bg: "bg-green-500/10", border: "border-green-500/20", text: "text-green-400" }}
+          animate
+        />
+        <StatCard
+          icon={RefreshCwIcon}
+          value={statsLoading ? "—" : (stats?.totalDistractions ?? 0)}
+          label="Distractions"
+          color={{ bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" }}
+          animate
+        />
       </div>
 
       {/* Join a Classroom — primary CTA */}

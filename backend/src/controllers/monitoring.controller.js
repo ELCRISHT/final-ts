@@ -64,3 +64,38 @@ export const getReportData = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// ── Student dashboard stats ──────────────────────────────────────────────────
+export const getMyStats = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    const allEvents = await MonitoringEvent.find({ student: studentId });
+
+    // Count unique sessions by unique callIds
+    const uniqueSessions = new Set(allEvents.map((e) => e.callId)).size;
+
+    // Count distraction events
+    const distractionTypes = ["tab_switch", "window_blur", "phone_usage", "distraction"];
+    const totalDistractions = allEvents.filter((e) => distractionTypes.includes(e.eventType)).length;
+
+    // Count warnings
+    const totalWarnings = allEvents.filter((e) => e.eventType === "warning").length;
+
+    // Compute focus rate
+    const focusEvents = allEvents.filter(
+      (e) => e.eventType === "focus" || e.eventType === "comply"
+    ).length;
+    const totalRelevant = allEvents.filter((e) => e.details !== "Student Joined Session").length;
+    const focusRate = totalRelevant > 0 ? Math.round((focusEvents / totalRelevant) * 100) : 100;
+
+    res.status(200).json({
+      sessionsJoined: uniqueSessions,
+      totalDistractions,
+      totalWarnings,
+      focusRate: `${focusRate}%`,
+    });
+  } catch (error) {
+    console.error("Error fetching student stats:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

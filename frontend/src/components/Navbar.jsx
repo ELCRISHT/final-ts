@@ -1,27 +1,15 @@
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
+import useLogout from "../hooks/useLogout";
 import { MonitorIcon, LogOutIcon } from "lucide-react";
 import ThemeSelector from "./ThemeSelector";
-import { useQueryClient } from "@tanstack/react-query";
-import { logout } from "../lib/api";
 
 const Navbar = () => {
   const { authUser } = useAuthUser();
+  const { logoutMutation } = useLogout();
   const location = useLocation();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const isChatPage = location.pathname?.startsWith("/chat");
   const isCallPage = location.pathname?.startsWith("/call");
-
-  const handleLogout = async () => {
-    try {
-      await logout(); // clears server-side session cookie
-    } catch {
-      // proceed even if the request fails
-    }
-    queryClient.clear(); // wipe authUser from React Query cache
-    navigate("/login", { replace: true });
-  };
 
   if (isCallPage) return null; // No navbar on call page — it has its own UI
 
@@ -60,7 +48,7 @@ const Navbar = () => {
             {/* Logout */}
             <button
               className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-              onClick={handleLogout}
+              onClick={logoutMutation}
               title="Sign out"
             >
               <LogOutIcon className="size-4" />

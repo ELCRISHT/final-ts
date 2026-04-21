@@ -1,10 +1,33 @@
-import { Users as UsersIcon, Activity, MonitorIcon } from "lucide-react";
-import { useState } from "react";
+import { Users as UsersIcon, Activity, MonitorIcon, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { Video, VideoOff, Mic, MicOff } from "lucide-react";
+
+// ── Session Duration Timer ────────────────────────────────────────────────────
+const useSessionTimer = () => {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const hours = Math.floor(elapsed / 3600);
+  const minutes = Math.floor((elapsed % 3600) / 60);
+  const seconds = elapsed % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return hours > 0
+    ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ── Full-width Zoom-style top bar combining session stats + participants ──
 const CallStats = ({ participants, authUser, callId }) => {
   const [showParticipants, setShowParticipants] = useState(false);
+  const sessionTime = useSessionTimer();
   const isTeacher = authUser?.role === "teacher";
   const studentCount = participants.filter(
     (p) => !p.isLocalParticipant || authUser?.role === "student"
@@ -26,8 +49,14 @@ const CallStats = ({ participants, authUser, callId }) => {
           </span>
         </div>
 
-        {/* Center: LIVE badge */}
+        {/* Center: LIVE badge + timer */}
         <div className="flex items-center gap-2">
+          {/* Session Timer */}
+          <div className="flex items-center gap-1.5 bg-base-300/60 border border-base-content/10 text-base-content/70 text-xs font-mono font-semibold px-3 py-1 rounded-full">
+            <Clock className="size-3 text-primary" />
+            {sessionTime}
+          </div>
+
           {isTeacher && studentCount > 0 && (
             <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1 rounded-full">
               <Activity className="size-3" />
@@ -43,7 +72,7 @@ const CallStats = ({ participants, authUser, callId }) => {
         >
           <UsersIcon className="size-3.5 text-primary" />
           <span className="font-bold">{participants.length}</span>
-          <span className="text-base-content/60">
+          <span className="text-base-content/60 hidden sm:inline">
             Participant{participants.length !== 1 ? "s" : ""}
           </span>
         </button>
